@@ -120,7 +120,8 @@ export type Scope =
   | "asignaciones:leer"
   | "asignaciones:escribir"
   | "rutas:leer"
-  | "usuarios:admin";
+  | "usuarios:admin"
+  | "conductor:viaje";
 
 // Respuesta de GET /api/auth/yo
 export interface Yo {
@@ -148,6 +149,11 @@ export interface RutaCamion {
   conductor: string | null;
   asignacion_id: number;
   envio: string;
+  cliente: string;
+  descripcion: string | null;
+  peso_kg: number;
+  origen: string;
+  destino: string;
   estado: string;
   distancia_total_km: number;
   tiempo_estimado_min: number;
@@ -156,6 +162,41 @@ export interface RutaCamion {
   ruta_carga: number[];
   ubicaciones: Ubicacion[];
   pasos: (Paso & { etapa: "vacio" | "carga" })[];
+}
+
+// App móvil
+export interface MiCamion {
+  id: number;
+  placa: string;
+  marca: string;
+  modelo: string;
+  capacidad_kg: number;
+  estado: string;
+  ubicacion: string | null;
+  conductor: string;
+}
+
+export interface ViajeResumen {
+  id: number;
+  estado: string;
+  envio: string;
+  cliente: string;
+  origen: string;
+  destino: string;
+  distancia_total_km: number;
+  tiempo_estimado_min: number;
+  creado_en: string;
+  actualizado_en: string | null;
+}
+
+export interface Posicion {
+  camion_id: number;
+  placa: string;
+  latitud: number;
+  longitud: number;
+  precision_m: number | null;
+  velocidad_kmh: number | null;
+  registrado_en: string;
 }
 
 // Registro genérico para el CRUD

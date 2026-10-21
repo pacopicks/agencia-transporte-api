@@ -1,11 +1,11 @@
 # API · Agencia de Transporte
 
-API para una agencia de transporte de carga. Dirige a los camiones por **rutas óptimas** y usa un **modelo de optimización que asigna automáticamente** cada envío al camión más conveniente. Incluye un **panel web de administración** con CRUD, mapa y tablero, y una base de datos local en **PostgreSQL**.
+API para una agencia de transporte de carga. Dirige a los camiones por **rutas óptimas** y usa un **modelo de optimización que asigna automáticamente** cada envío al camión más conveniente. Incluye un **panel web de administración** con CRUD, mapa y tablero, una **app móvil** (PWA instalable) para conductores y personal, y una base de datos local en **PostgreSQL**.
 
 ```
- Navegador (panel React)          Otras apps (p. ej. app de conductores)
-          │  JWT                              │  X-API-Key
-          ▼                                   ▼
+ Panel web (React)   App móvil (PWA, /movil)   Otras apps
+          │  JWT              │  JWT                │  X-API-Key
+          ▼                   ▼                     ▼
  ┌───────────────────────────────────────────────────────────┐
  │ FastAPI  ·  CORS · rate limit · scopes · BOLA             │
  │  ├─ CRUD de catálogos (envíos, camiones, conductores, …)  │
@@ -23,7 +23,7 @@ API para una agencia de transporte de carga. Dirige a los camiones por **rutas �
 | Modelo | Dijkstra (implementado a mano) + método húngaro (`scipy.optimize.linear_sum_assignment`) |
 | Base de datos | PostgreSQL 18 (local) |
 | Seguridad | JWT con scopes (PyJWT) · API keys · rate limit · CORS · protección BOLA/IDOR |
-| Panel web | React 19 · TypeScript · Vite · Tailwind CSS 4 · shadcn/ui · Leaflet (mapas) |
+| Panel web y app móvil | React 19 · TypeScript · Vite · Tailwind CSS 4 · shadcn/ui · Leaflet (mapas) · PWA (manifest + service worker) |
 
 ## Cómo arrancarlo
 
@@ -31,7 +31,7 @@ API para una agencia de transporte de carga. Dirige a los camiones por **rutas �
 
 1. Revisa el archivo `.env` (si no existe, copia `.env.example` como `.env`) y pon la contraseña de tu usuario `postgres` en `DATABASE_URL`.
 2. Haz doble clic en **`iniciar.bat`**. La primera vez instala todo y compila el panel.
-3. Abre **http://localhost:8000** para el panel o **http://localhost:8000/docs** para la documentación interactiva (Swagger).
+3. Abre **http://localhost:8000** para el panel, **http://localhost:8000/movil/** para la app móvil o **http://localhost:8000/docs** para la documentación interactiva (Swagger).
 
 La base de datos `transporte` y sus tablas se crean solas al arrancar. Con `CARGAR_DEMO=true` también se cargan 15 ciudades, 22 carreteras, 7 camiones, 7 conductores, 8 envíos y estos usuarios de prueba:
 
@@ -40,7 +40,10 @@ La base de datos `transporte` y sus tablas se crean solas al arrancar. Con `CARG
 | `admin` | `admin123` | admin | Todo, incluidos usuarios y API keys |
 | `operador` | `operador123` | operador | Editar catálogos y ejecutar el modelo |
 | `consulta` | `consulta123` | consulta | Solo ver |
-| `juan` | `juan123` | conductor | Solo ver la ruta de **su** camión |
+| `juan` | `juan123` | conductor | App móvil: solo **sus** viajes y **su** camión (71-AK-3D) |
+| `maria` | `maria123` | conductor | Igual, con el camión 52-BN-8F (sirve para probar ataques entre conductores) |
+
+> Con `CARGAR_DEMO=true`, los usuarios de prueba que falten se vuelven a crear al arrancar. En una instalación real pon `CARGAR_DEMO=false` y cambia la contraseña del admin.
 
 <details>
 <summary>Arrancarlo a mano (sin iniciar.bat)</summary>
@@ -52,6 +55,28 @@ cd frontend; npm install; npm run build; cd ..
 .venv\Scripts\python -m uvicorn app.main:app --reload
 ```
 </details>
+
+## App móvil
+
+Es una **PWA** (app web instalable) hecha con el mismo código que el panel ([frontend/src/movil](frontend/src/movil)). Vive en **`/movil/`**, se instala en la pantalla de inicio del celular y muestra pantallas distintas según el rol:
+
+| Rol | Pestañas |
+|---|---|
+| Conductor | **Mi viaje** (envío, mapa, ruta paso a paso, *Iniciar viaje*, *Confirmar entrega*, *Navegar con Google Maps* y compartir ubicación GPS) · **Historial** · **Perfil** |
+| Admin, operador o consulta | **Inicio** (resumen y ejecutar el modelo) · **Asignaciones** (con acciones) · **Envíos** (alta rápida) · **Flota** (mapa con el GPS de los camiones) · **Perfil** |
+
+**Probarla en la computadora:** abre http://localhost:8000/movil/ y activa la vista de celular del navegador (F12 → ícono de teléfono).
+
+**Probarla en tu celular (misma red Wi-Fi):** ejecuta **`iniciar-red.bat`** y abre en el celular la dirección que aparece (`http://192.168.x.x:8000/movil/`). Si Windows pregunta por el firewall, permite el acceso en redes privadas. Así la app funciona, pero el navegador **no deja usar el GPS ni instalarla** sin `https`.
+
+**Instalarla con GPS (https):** con la API encendida, crea un túnel `https` temporal con Cloudflare:
+
+```powershell
+winget install --id Cloudflare.cloudflared
+cloudflared tunnel --url http://localhost:8000
+```
+
+Abre en el celular la dirección `https://….trycloudflare.com/movil/` que aparece y elige **"Instalar app"** o **"Agregar a pantalla principal"**. Mientras el túnel esté abierto, cualquiera con el enlace puede llegar a tu API: cambia antes las contraseñas de prueba y ciérralo con `Ctrl+C` al terminar.
 
 ## Cómo funciona el modelo de asignación
 
@@ -70,14 +95,14 @@ Después, cada asignación pasa por `planificada → en_curso → completada` (o
 
 ## Seguridad
 
-Todo está explicado en **[SEGURIDAD.md](SEGURIDAD.md)**, junto con el **análisis BOLA/IDOR**. En resumen:
+Todo está explicado en **[SEGURIDAD.md](SEGURIDAD.md)**. El **análisis BOLA/IDOR** completo, con evidencia, está en **[ANALISIS-BOLA-IDOR.md](ANALISIS-BOLA-IDOR.md)**. En resumen:
 
 - **JWT** para personas: `POST /api/auth/token`. El token lleva los *scopes* (permisos) del rol.
 - **API keys** para otras aplicaciones, en el encabezado `X-API-Key`. La API solo guarda su hash SHA-256 y la llave completa se ve una sola vez.
-- **Scopes:** `catalogos:leer`, `catalogos:escribir`, `asignaciones:leer`, `asignaciones:escribir`, `rutas:leer` y `usuarios:admin`.
+- **Scopes:** `catalogos:leer`, `catalogos:escribir`, `asignaciones:leer`, `asignaciones:escribir`, `rutas:leer`, `usuarios:admin` y `conductor:viaje`.
 - **Rate limit:** 120 peticiones por minuto en general, 10 intentos de login por minuto por IP y 10 ejecuciones del modelo por minuto. Al pasarse se recibe `429` con `Retry-After`.
 - **CORS:** solo se aceptan los orígenes de `CORS_ORIGENES` en `.env`.
-- **BOLA/IDOR:** un conductor solo puede consultar la ruta de su camión. Si cambia el id en la URL recibe `404`.
+- **BOLA/IDOR:** un conductor solo ve y opera **sus** viajes y **su** camión. Si cambia el id en la URL recibe `404`. Las 20 pruebas de ataque de [`pruebas/bola_idor.py`](pruebas/bola_idor.py) pasan.
 
 ## Endpoints principales
 
@@ -95,6 +120,11 @@ Todo está explicado en **[SEGURIDAD.md](SEGURIDAD.md)**, junto con el **anális
 | `GET /api/rutas/camion/{id}` | `rutas:leer` + BOLA | Indicaciones paso a paso de un camión |
 | `GET /api/rutas/mi-ruta` | `rutas:leer` | Ruta del conductor con la sesión abierta |
 | `GET /api/panel` | `asignaciones:leer` | Datos del tablero |
+| `GET /api/posiciones` | `catalogos:leer` | Última ubicación GPS de cada camión |
+| `GET /api/conductor/viaje` · `GET /api/conductor/camion` | `conductor:viaje` | App móvil: mi viaje actual y mi camión |
+| `GET /api/conductor/viajes` · `GET /api/conductor/viajes/{id}` | `conductor:viaje` + BOLA | Mi historial y el detalle de uno de **mis** viajes |
+| `POST /api/conductor/viajes/{id}/{iniciar, entregar}` | `conductor:viaje` + BOLA | Salir a ruta o confirmar la entrega |
+| `POST /api/conductor/ubicacion` | `conductor:viaje` | Reportar mi ubicación GPS (el camión sale de la sesión) |
 | `/api/usuarios`, `/api/api-keys` | `usuarios:admin` | Administrar usuarios y API keys |
 
 En `/docs` puedes probarlos todos con el botón **Authorize**, usando usuario y contraseña o una API key.
@@ -115,13 +145,19 @@ app/                    API (Python)
   routers/              endpoints por tema
   services/rutas.py     Dijkstra
   services/asignador.py modelo de asignación (método húngaro)
+  services/viajes.py    ciclo de vida de un viaje (iniciar, entregar, cancelar)
 frontend/               panel web (React + TypeScript + Tailwind + shadcn/ui)
   src/components/ui/dashboard-with-collapsible-sidebar.tsx   diseño del dashboard
   src/components/ui/    componentes de shadcn (button, dialog, table, …)
   src/vistas/           pantallas: Inicio, Asignaciones, Rutas, Catálogo, API keys, Mi ruta
   src/entidades.ts      configuración de los CRUD (columnas y formularios)
+  movil/index.html      página de la app móvil
+  src/movil/            app móvil: pantallas del conductor y del personal, GPS
+  public/movil/         manifest, service worker e íconos de la PWA
+pruebas/bola_idor.py    20 pruebas automáticas de ataques BOLA/IDOR
 database/esquema.sql    esquema SQL de referencia
-iniciar.bat             arranca todo
+iniciar.bat             arranca todo (solo en esta computadora)
+iniciar-red.bat         arranca todo y lo abre a tu red Wi-Fi (para el celular)
 ```
 
 ## Trabajar en el panel web
@@ -133,7 +169,7 @@ FastAPI sirve la versión compilada (`frontend/dist`). Para editar el panel con 
 .venv\Scripts\python -m uvicorn app.main:app --reload
 # terminal 2
 cd frontend
-npm run dev        # http://localhost:5173 (manda las peticiones /api a FastAPI)
+npm run dev        # panel: http://localhost:5173 · app móvil: http://localhost:5173/movil/
 ```
 
 Cuando termines, ejecuta `npm run build` para que FastAPI sirva la versión nueva.

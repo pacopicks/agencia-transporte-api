@@ -130,3 +130,20 @@ CREATE TABLE asignaciones (
 	FOREIGN KEY(camion_id) REFERENCES camiones (id), 
 	FOREIGN KEY(conductor_id) REFERENCES conductores (id) ON DELETE SET NULL
 );
+
+CREATE TABLE posiciones (
+	id SERIAL NOT NULL, 
+	camion_id INTEGER NOT NULL, 
+	usuario_id INTEGER, 
+	latitud FLOAT NOT NULL, 
+	longitud FLOAT NOT NULL, 
+	precision_m FLOAT, 
+	velocidad_kmh FLOAT, 
+	registrado_en TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_posiciones_coordenadas CHECK (latitud BETWEEN -90 AND 90 AND longitud BETWEEN -180 AND 180), 
+	FOREIGN KEY(camion_id) REFERENCES camiones (id) ON DELETE CASCADE, 
+	FOREIGN KEY(usuario_id) REFERENCES usuarios (id) ON DELETE SET NULL
+);
+CREATE INDEX ix_posiciones_camion_id ON posiciones (camion_id);
+CREATE INDEX ix_posiciones_registrado_en ON posiciones (registrado_en);

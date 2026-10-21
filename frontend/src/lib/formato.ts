@@ -59,6 +59,7 @@ export const SCOPES: Record<string, string> = {
   "asignaciones:escribir": "Ejecutar el modelo y cambiar asignaciones",
   "rutas:leer": "Calcular y consultar rutas",
   "usuarios:admin": "Administrar usuarios y API keys",
+  "conductor:viaje": "App móvil del conductor (solo sus viajes)",
 };
 
 export const PRIORIDADES: Record<number, string> = { 1: "Baja", 2: "Media", 3: "Alta", 4: "Urgente" };

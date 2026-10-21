@@ -130,6 +130,24 @@ class Envio(Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Posicion(Base):
+    """Ubicación GPS que manda la app móvil del conductor (historial del recorrido)."""
+
+    __tablename__ = "posiciones"
+    __table_args__ = (
+        CheckConstraint("latitud BETWEEN -90 AND 90 AND longitud BETWEEN -180 AND 180", name="ck_posiciones_coordenadas"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    camion_id: Mapped[int] = mapped_column(ForeignKey("camiones.id", ondelete="CASCADE"), index=True)
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"))
+    latitud: Mapped[float]
+    longitud: Mapped[float]
+    precision_m: Mapped[float | None]
+    velocidad_kmh: Mapped[float | None]
+    registrado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
 class Asignacion(Base):
     """Resultado del modelo: qué camión lleva qué envío y por qué ruta."""
 

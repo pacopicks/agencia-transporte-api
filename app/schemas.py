@@ -245,6 +245,11 @@ class RutaCamion(Esquema):
     conductor: str | None
     asignacion_id: int
     envio: str
+    cliente: str
+    descripcion: str | None
+    peso_kg: float
+    origen: str
+    destino: str
     estado: EstadoAsignacion
     distancia_total_km: float
     tiempo_estimado_min: int
@@ -253,6 +258,54 @@ class RutaCamion(Esquema):
     ruta_carga: list[int]
     ubicaciones: list[Ubicacion] = Field(description="Ubicaciones de la ruta, con coordenadas para dibujarla")
     pasos: list[Paso]
+
+
+# ---------- App móvil del conductor ----------
+class MiCamion(Esquema):
+    id: int
+    placa: str
+    marca: str
+    modelo: str
+    capacidad_kg: float
+    estado: EstadoCamion
+    ubicacion: str | None
+    conductor: str
+
+
+class ViajeResumen(Esquema):
+    """Un viaje del historial del conductor."""
+
+    id: int
+    estado: EstadoAsignacion
+    envio: str
+    cliente: str
+    origen: str
+    destino: str
+    distancia_total_km: float
+    tiempo_estimado_min: int
+    creado_en: datetime
+    actualizado_en: datetime | None
+
+
+class PosicionEntrada(Esquema):
+    # extra="forbid": si la app manda campos de más (por ejemplo camion_id para hacerse pasar
+    # por otro camión) la API responde 422. El camión siempre se toma de la sesión.
+    model_config = ConfigDict(extra="forbid")
+
+    latitud: float = Field(ge=-90, le=90)
+    longitud: float = Field(ge=-180, le=180)
+    precision_m: float | None = Field(default=None, ge=0)
+    velocidad_kmh: float | None = Field(default=None, ge=0)
+
+
+class Posicion(Esquema):
+    camion_id: int
+    placa: str
+    latitud: float
+    longitud: float
+    precision_m: float | None
+    velocidad_kmh: float | None
+    registrado_en: datetime
 
 
 # ---------- Panel ----------

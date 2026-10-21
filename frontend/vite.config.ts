@@ -10,6 +10,13 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 800, // React + Leaflet juntos pesan ~550 kB (165 kB comprimido)
+    // Dos páginas con el mismo código: el panel web (/) y la app móvil (/movil/)
+    rolldownOptions: {
+      input: {
+        panel: fileURLToPath(new URL("./index.html", import.meta.url)),
+        movil: fileURLToPath(new URL("./movil/index.html", import.meta.url)),
+      },
+    },
   },
   server: {
     // En desarrollo (npm run dev) las peticiones a /api se mandan a FastAPI

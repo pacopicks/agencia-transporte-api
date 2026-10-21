@@ -23,6 +23,15 @@ export async function iniciarSesion(usuario: string, password: string): Promise<
   sesion.guardar(datos.access_token);
 }
 
+// Error con el código HTTP, para distinguir por ejemplo un 404 ("no hay viaje") de una falla
+export class ErrorApi extends Error {
+  estado: number;
+  constructor(mensaje: string, estado: number) {
+    super(mensaje);
+    this.estado = estado;
+  }
+}
+
 interface Opciones {
   metodo?: "GET" | "POST" | "PUT" | "DELETE";
   datos?: unknown;
@@ -39,11 +48,11 @@ export async function api<T = unknown>(ruta: string, { metodo = "GET", datos }: 
   if (respuesta.status === 401) {
     sesion.cerrar();
     window.dispatchEvent(new Event("sesion-expirada"));
-    throw new Error("Tu sesión expiró, vuelve a entrar");
+    throw new ErrorApi("Tu sesión expiró, vuelve a entrar", 401);
   }
   if (respuesta.status === 204) return null as T;
   const cuerpo = await respuesta.json().catch(() => null);
-  if (!respuesta.ok) throw new Error(mensajeDeError(cuerpo));
+  if (!respuesta.ok) throw new ErrorApi(mensajeDeError(cuerpo), respuesta.status);
   return cuerpo as T;
 }
 
@@ -63,3 +72,13 @@ function mensajeDeError(cuerpo: { detail?: unknown } | null): string {
 }
 
 export const mensaje = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+/** Ejecuta la petición y regresa null si la API responde 404 (cualquier otro error se propaga). */
+export async function o404<T>(peticion: Promise<T>): Promise<T | null> {
+  try {
+    return await peticion;
+  } catch (err) {
+    if (err instanceof ErrorApi && err.estado === 404) return null;
+    throw err;
+  }
+}

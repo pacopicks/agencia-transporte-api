@@ -6,7 +6,7 @@ from app.crud import guardar, obtener_o_404
 from app.database import DB
 from app.limites import limite_modelo
 from app.seguridad import requiere
-from app.services import asignador
+from app.services import asignador, viajes
 
 router = APIRouter(prefix="/api/asignaciones", tags=["Asignaciones (modelo)"])
 LEER = [requiere("asignaciones:leer")]
@@ -15,14 +15,6 @@ ESCRIBIR = [requiere("asignaciones:escribir")]
 
 def _obtener(db, asignacion_id: int) -> models.Asignacion:
     return obtener_o_404(db, models.Asignacion, asignacion_id, "asignación")
-
-
-def _exigir_estado(asignacion: models.Asignacion, *permitidos: str) -> None:
-    if asignacion.estado not in permitidos:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            f"La asignación está '{asignacion.estado}'; esta acción solo aplica si está {' o '.join(permitidos)}",
-        )
 
 
 @router.get("", response_model=list[schemas.Asignacion], dependencies=LEER, summary="Listar asignaciones")
@@ -70,10 +62,7 @@ def recalcular(asignacion_id: int, db: DB):
 @router.post("/{asignacion_id}/iniciar", response_model=schemas.Asignacion, dependencies=ESCRIBIR, summary="El camión sale a ruta")
 def iniciar(asignacion_id: int, db: DB):
     asignacion = _obtener(db, asignacion_id)
-    _exigir_estado(asignacion, "planificada")
-    asignacion.estado = "en_curso"
-    asignacion.envio.estado = "en_transito"
-    asignacion.camion.estado = "en_ruta"
+    viajes.iniciar(asignacion)
     guardar(db)
     db.refresh(asignacion)
     return asignacion
@@ -82,11 +71,7 @@ def iniciar(asignacion_id: int, db: DB):
 @router.post("/{asignacion_id}/completar", response_model=schemas.Asignacion, dependencies=ESCRIBIR, summary="Envío entregado")
 def completar(asignacion_id: int, db: DB):
     asignacion = _obtener(db, asignacion_id)
-    _exigir_estado(asignacion, "en_curso")
-    asignacion.estado = "completada"
-    asignacion.envio.estado = "entregado"
-    asignacion.camion.estado = "disponible"
-    asignacion.camion.ubicacion_id = asignacion.envio.destino_id  # el camión queda en el destino
+    viajes.completar(asignacion)
     guardar(db)
     db.refresh(asignacion)
     return asignacion
@@ -95,10 +80,7 @@ def completar(asignacion_id: int, db: DB):
 @router.post("/{asignacion_id}/cancelar", response_model=schemas.Asignacion, dependencies=ESCRIBIR, summary="Cancelar asignación")
 def cancelar(asignacion_id: int, db: DB):
     asignacion = _obtener(db, asignacion_id)
-    _exigir_estado(asignacion, *models.ASIGNACION_ACTIVA)
-    asignacion.estado = "cancelada"
-    asignacion.envio.estado = "pendiente"
-    asignacion.camion.estado = "disponible"
+    viajes.cancelar(asignacion)
     guardar(db)
     db.refresh(asignacion)
     return asignacion

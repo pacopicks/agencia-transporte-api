@@ -19,7 +19,8 @@ import { api, mensaje } from "@/lib/api";
 import { SCOPES, fmt } from "@/lib/formato";
 import type { ApiKey } from "@/lib/tipos";
 
-const SCOPES_PARA_LLAVES = Object.keys(SCOPES).filter(s => s !== "usuarios:admin");
+// Una API key no puede administrar usuarios ni actuar como conductor (la API también lo impide)
+const SCOPES_PARA_LLAVES = Object.keys(SCOPES).filter(s => s !== "usuarios:admin" && s !== "conductor:viaje");
 
 export function ApiKeys() {
   const [llaves, setLlaves] = useState<ApiKey[] | null>(null);

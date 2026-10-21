@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { api, mensaje } from "@/lib/api";
 import { fmt } from "@/lib/formato";
-import type { Camion, Criterio, RutaOptima, Tramo, Ubicacion } from "@/lib/tipos";
+import type { Camion, Criterio, Posicion, RutaOptima, Tramo, Ubicacion } from "@/lib/tipos";
 
 interface Datos {
   ubicaciones: Ubicacion[];
   tramos: Tramo[];
   camiones: Camion[];
+  posiciones: Posicion[];
 }
 
 export function Rutas({ ir }: { ir: (vista: string) => void }) {
@@ -22,8 +23,13 @@ export function Rutas({ ir }: { ir: (vista: string) => void }) {
   const [calculando, setCalculando] = useState(false);
 
   useEffect(() => {
-    Promise.all([api<Ubicacion[]>("/ubicaciones"), api<Tramo[]>("/tramos"), api<Camion[]>("/camiones")])
-      .then(([ubicaciones, tramos, camiones]) => setDatos({ ubicaciones, tramos, camiones }))
+    Promise.all([
+      api<Ubicacion[]>("/ubicaciones"),
+      api<Tramo[]>("/tramos"),
+      api<Camion[]>("/camiones"),
+      api<Posicion[]>("/posiciones"),
+    ])
+      .then(([ubicaciones, tramos, camiones, posiciones]) => setDatos({ ubicaciones, tramos, camiones, posiciones }))
       .catch(err => setError(mensaje(err)));
   }, []);
 
@@ -52,7 +58,7 @@ export function Rutas({ ir }: { ir: (vista: string) => void }) {
     }
   }
 
-  const { ubicaciones, tramos, camiones } = datos;
+  const { ubicaciones, tramos, camiones, posiciones } = datos;
   return (
     <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] items-start">
       <Tarjeta titulo="Calcular ruta óptima">
@@ -124,9 +130,19 @@ export function Rutas({ ir }: { ir: (vista: string) => void }) {
           </button>{" "}
           (desmarca “Abierto”) y vuelve a calcular. Dijkstra buscará otro camino.
         </p>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          Los puntos verdes son la última ubicación GPS que mandó la app móvil de cada conductor.
+        </p>
       </Tarjeta>
       <Tarjeta className="p-0 overflow-hidden">
-        <Mapa ubicaciones={ubicaciones} tramos={tramos} camiones={camiones} ruta={rutaMapa} className="h-[620px]" />
+        <Mapa
+          ubicaciones={ubicaciones}
+          tramos={tramos}
+          camiones={camiones}
+          posiciones={posiciones}
+          ruta={rutaMapa}
+          className="h-[620px]"
+        />
       </Tarjeta>
     </div>
   );

@@ -39,22 +39,28 @@ def describir(db: Session, nodos: list[int], etapa: str | None = None) -> list[s
     return pasos
 
 
-def _ruta_activa(db: Session, camion: models.Camion) -> schemas.RutaCamion:
-    asignacion = db.scalar(
-        select(models.Asignacion)
-        .where(models.Asignacion.camion_id == camion.id, models.Asignacion.estado.in_(models.ASIGNACION_ACTIVA))
-        .order_by(models.Asignacion.id.desc())
-        .limit(1)
-    )
-    if asignacion is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"El camión {camion.placa} no tiene una ruta asignada")
+def detalle_asignacion(db: Session, asignacion: models.Asignacion) -> schemas.RutaCamion:
+    """Toda la información de un viaje: envío, camión, ruta paso a paso y coordenadas."""
+    camion = asignacion.camion
+    envio = asignacion.envio
+    conductor = db.get(models.Conductor, asignacion.conductor_id) if asignacion.conductor_id else None
+
+    def nombre(ubicacion_id: int) -> str:
+        ubicacion = db.get(models.Ubicacion, ubicacion_id)
+        return ubicacion.nombre if ubicacion else "—"
+
     nodos = set(asignacion.ruta_vacio) | set(asignacion.ruta_carga)
     return schemas.RutaCamion(
         camion_id=camion.id,
         placa=camion.placa,
-        conductor=camion.conductor.nombre if camion.conductor else None,
+        conductor=conductor.nombre if conductor else None,
         asignacion_id=asignacion.id,
-        envio=asignacion.envio.codigo,
+        envio=envio.codigo,
+        cliente=envio.cliente,
+        descripcion=envio.descripcion,
+        peso_kg=envio.peso_kg,
+        origen=nombre(envio.origen_id),
+        destino=nombre(envio.destino_id),
         estado=asignacion.estado,
         distancia_total_km=asignacion.distancia_total_km,
         tiempo_estimado_min=asignacion.tiempo_estimado_min,
@@ -64,6 +70,19 @@ def _ruta_activa(db: Session, camion: models.Camion) -> schemas.RutaCamion:
         ubicaciones=db.scalars(select(models.Ubicacion).where(models.Ubicacion.id.in_(nodos))).all(),
         pasos=describir(db, asignacion.ruta_vacio, "vacio") + describir(db, asignacion.ruta_carga, "carga"),
     )
+
+
+def ruta_activa(db: Session, camion: models.Camion) -> schemas.RutaCamion:
+    """Viaje planificado o en curso del camión; 404 si no tiene."""
+    asignacion = db.scalar(
+        select(models.Asignacion)
+        .where(models.Asignacion.camion_id == camion.id, models.Asignacion.estado.in_(models.ASIGNACION_ACTIVA))
+        .order_by(models.Asignacion.id.desc())
+        .limit(1)
+    )
+    if asignacion is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"El camión {camion.placa} no tiene una ruta asignada")
+    return detalle_asignacion(db, asignacion)
 
 
 @router.get(
@@ -98,7 +117,7 @@ def mi_ruta(identidad: LectorRutas, db: DB):
     camion = db.scalar(select(models.Camion).where(models.Camion.conductor_id == identidad.usuario.conductor_id))
     if camion is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No tienes un camión asignado")
-    return _ruta_activa(db, camion)
+    return ruta_activa(db, camion)
 
 
 @router.get("/camion/{camion_id}", response_model=schemas.RutaCamion, summary="Indicaciones de ruta de un camión")
@@ -108,4 +127,4 @@ def ruta_de_camion(camion_id: int, identidad: LectorRutas, db: DB):
     # por el de otro camión recibe el mismo 404 que si no existiera (así no puede enumerar camiones).
     if identidad.es_conductor and camion.conductor_id != identidad.usuario.conductor_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"No se encontró camión con id {camion_id}")
-    return _ruta_activa(db, camion)
+    return ruta_activa(db, camion)

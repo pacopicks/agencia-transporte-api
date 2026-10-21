@@ -17,7 +17,7 @@ from app.config import CLAVE_DE_EJEMPLO, settings
 from app.database import Base, SessionLocal, crear_base_si_no_existe, engine
 from app.datos_demo import inicializar
 from app.limites import limite_general
-from app.routers import api_keys, asignaciones, auth, catalogos, panel, rutas, usuarios
+from app.routers import api_keys, asignaciones, auth, catalogos, conductor, panel, posiciones, rutas, usuarios
 
 CARPETA_WEB = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 log = logging.getLogger("uvicorn.error")
@@ -77,7 +77,7 @@ app.add_middleware(
 )
 
 for router in (
-    auth.router, panel.router, asignaciones.router, rutas.router,
+    auth.router, panel.router, asignaciones.router, rutas.router, posiciones.router, conductor.router,
     *catalogos.routers, usuarios.router, api_keys.router,
 ):
     app.include_router(router)

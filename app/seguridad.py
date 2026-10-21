@@ -31,13 +31,15 @@ SCOPES = {
     "asignaciones:escribir": "Ejecutar el modelo, asignar manualmente y cambiar estados",
     "rutas:leer": "Calcular rutas óptimas y consultar la ruta de un camión",
     "usuarios:admin": "Administrar usuarios y API keys",
+    "conductor:viaje": "App móvil: ver, iniciar y entregar SUS viajes y reportar su ubicación",
 }
 
 ROLES: dict[str, set[str]] = {
-    "admin": set(SCOPES),
+    "admin": set(SCOPES) - {"conductor:viaje"},  # el admin no maneja un camión
     "operador": {"catalogos:leer", "catalogos:escribir", "asignaciones:leer", "asignaciones:escribir", "rutas:leer"},
     "consulta": {"catalogos:leer", "asignaciones:leer", "rutas:leer"},
-    "conductor": {"rutas:leer"},  # y solo puede ver la ruta de SU camión (ver rutas.py)
+    # Solo sobre SU camión y SUS viajes (ver los controles BOLA en rutas.py y conductor.py)
+    "conductor": {"rutas:leer", "conductor:viaje"},
 }
 
 ALGORITMO = "HS256"
@@ -145,8 +147,8 @@ def _identidad_por_api_key(db, clave: str) -> Identidad:
         raise _no_autorizado("API key inválida o revocada")
     api_key.ultimo_uso = datetime.now(timezone.utc)
     db.commit()
-    # Una API key nunca puede administrar usuarios ni crear otras llaves
-    scopes = set(api_key.scopes) & (set(SCOPES) - {"usuarios:admin"})
+    # Una API key nunca puede administrar usuarios ni crear otras llaves, ni actuar como conductor
+    scopes = set(api_key.scopes) & (set(SCOPES) - {"usuarios:admin", "conductor:viaje"})
     return Identidad(nombre=f"api-key {api_key.prefijo}", scopes=scopes, api_key=api_key)
 
 

@@ -79,6 +79,7 @@ USUARIOS_DEMO = [
     ("operador", "operador123", "Operador de tráfico", "operador", None),
     ("consulta", "consulta123", "Usuario de consulta", "consulta", None),
     ("juan", "juan123", "Juan Pérez López", "conductor", "LFE-100231"),
+    ("maria", "maria123", "María Hernández Ruiz", "conductor", "LFE-100232"),
 ]
 
 ENVIOS = [
@@ -95,7 +96,7 @@ ENVIOS = [
 
 
 def inicializar(db: Session) -> None:
-    """Crea el primer administrador y, si la base está vacía, los datos de ejemplo."""
+    """Crea el primer administrador y, con CARGAR_DEMO=true, los datos y usuarios de ejemplo."""
     if not db.scalar(select(func.count()).select_from(Usuario)):
         db.add(
             Usuario(
@@ -105,9 +106,32 @@ def inicializar(db: Session) -> None:
                 password_hash=hashear_password(settings.admin_password),
             )
         )
-    if settings.cargar_demo and not db.scalar(select(func.count()).select_from(Ubicacion)):
-        _cargar_demo(db)
+        db.flush()
+    if settings.cargar_demo:
+        if not db.scalar(select(func.count()).select_from(Ubicacion)):
+            _cargar_demo(db)
+        _usuarios_demo(db)
     db.commit()
+
+
+def _usuarios_demo(db: Session) -> None:
+    """Crea los usuarios de ejemplo que falten (también en bases que ya existían)."""
+    existentes = set(db.scalars(select(Usuario.usuario)))
+    vinculados = set(db.scalars(select(Usuario.conductor_id).where(Usuario.conductor_id.is_not(None))))
+    conductores = dict(db.execute(select(Conductor.licencia, Conductor.id)).all())
+    for usuario, password, nombre, rol, licencia in USUARIOS_DEMO:
+        conductor_id = conductores.get(licencia) if licencia else None
+        if usuario in existentes or (licencia and (conductor_id is None or conductor_id in vinculados)):
+            continue
+        db.add(
+            Usuario(
+                usuario=usuario,
+                nombre=nombre,
+                rol=rol,
+                conductor_id=conductor_id,
+                password_hash=hashear_password(password),
+            )
+        )
 
 
 def _cargar_demo(db: Session) -> None:
@@ -115,19 +139,6 @@ def _cargar_demo(db: Session) -> None:
     conductores = {lic: Conductor(nombre=nombre, licencia=lic, telefono=tel) for nombre, lic, tel in CONDUCTORES}
     db.add_all([*ciudades.values(), *conductores.values()])
     db.flush()  # para obtener los id
-
-    usuarios_existentes = set(db.scalars(select(Usuario.usuario)))
-    db.add_all(
-        Usuario(
-            usuario=usuario,
-            nombre=nombre,
-            rol=rol,
-            conductor_id=conductores[licencia].id if licencia else None,
-            password_hash=hashear_password(password),
-        )
-        for usuario, password, nombre, rol, licencia in USUARIOS_DEMO
-        if usuario not in usuarios_existentes
-    )
 
     db.add_all(
         Tramo(origen_id=ciudades[a].id, destino_id=ciudades[b].id, distancia_km=km, tiempo_min=minutos, peaje=peaje)

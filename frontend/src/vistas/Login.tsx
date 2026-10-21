@@ -49,6 +49,12 @@ export function Login({ onEntrar, aviso }: { onEntrar: () => void; aviso?: strin
         <Button type="submit" disabled={entrando} className="bg-blue-600 hover:bg-blue-700 text-white">
           {entrando ? "Entrando…" : "Entrar"}
         </Button>
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          ¿Eres conductor?{" "}
+          <a href="/movil/" className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
+            Abre la app móvil
+          </a>
+        </p>
       </form>
     </div>
   );

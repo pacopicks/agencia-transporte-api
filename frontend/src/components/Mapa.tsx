@@ -1,12 +1,14 @@
 // Mapa con Leaflet + OpenStreetMap (necesita internet para el fondo del mapa).
 import { useEffect, useRef } from "react";
 import L from "leaflet";
-import type { Camion, Tramo, Ubicacion } from "@/lib/tipos";
+import { fmt } from "@/lib/formato";
+import type { Camion, Posicion, Tramo, Ubicacion } from "@/lib/tipos";
 import { cn } from "@/lib/utils";
 
 const COLOR_VACIO = "#d97706";
 const COLOR_CARGA = "#2563eb";
 const SIN_CAMIONES: Camion[] = [];
+const SIN_POSICIONES: Posicion[] = [];
 
 export interface RutaMapa {
   vacio: number[]; // camión -> origen del envío (punteado)
@@ -18,17 +20,28 @@ interface Props {
   tramos: Tramo[];
   camiones?: Camion[];
   ruta?: RutaMapa | null;
+  posiciones?: Posicion[]; // última ubicación GPS reportada por la app de cada camión
+  puntoActual?: [number, number] | null; // "estás aquí" (app del conductor)
   className?: string;
 }
 
 const punto = (u: Ubicacion): L.LatLngTuple => [u.latitud, u.longitud];
 const escapar = (texto: string) => texto.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
-export function Mapa({ ubicaciones, tramos, camiones = SIN_CAMIONES, ruta = null, className }: Props) {
+export function Mapa({
+  ubicaciones,
+  tramos,
+  camiones = SIN_CAMIONES,
+  ruta = null,
+  posiciones = SIN_POSICIONES,
+  puntoActual = null,
+  className,
+}: Props) {
   const contenedor = useRef<HTMLDivElement>(null);
   const mapa = useRef<L.Map | null>(null);
   const capaRed = useRef<L.LayerGroup | null>(null);
   const capaRuta = useRef<L.LayerGroup | null>(null);
+  const capaGps = useRef<L.LayerGroup | null>(null);
 
   // Crear el mapa una sola vez
   useEffect(() => {
@@ -39,6 +52,7 @@ export function Mapa({ ubicaciones, tramos, camiones = SIN_CAMIONES, ruta = null
     }).addTo(m);
     capaRed.current = L.layerGroup().addTo(m);
     capaRuta.current = L.layerGroup().addTo(m);
+    capaGps.current = L.layerGroup().addTo(m);
     mapa.current = m;
     // Si cambia el tamaño (por ejemplo, al colapsar la barra lateral) Leaflet debe recalcular
     const observador = new ResizeObserver(() => m.invalidateSize());
@@ -122,6 +136,23 @@ export function Mapa({ ubicaciones, tramos, camiones = SIN_CAMIONES, ruta = null
     const todos = puntos([...ruta.vacio, ...ruta.carga]);
     if (todos.length) m.fitBounds(todos, { padding: [48, 48] });
   }, [ruta, ubicaciones]);
+
+  // Ubicaciones GPS en vivo
+  useEffect(() => {
+    const capa = capaGps.current;
+    if (!capa) return;
+    capa.clearLayers();
+    for (const p of posiciones) {
+      L.circleMarker([p.latitud, p.longitud], { radius: 7, color: "#fff", weight: 2, fillColor: "#16a34a", fillOpacity: 1 })
+        .bindTooltip(`GPS ${escapar(p.placa)} · ${fmt.haceCuanto(p.registrado_en)}`)
+        .addTo(capa);
+    }
+    if (puntoActual) {
+      L.circleMarker(puntoActual, { radius: 9, color: "#fff", weight: 3, fillColor: "#2563eb", fillOpacity: 1 })
+        .bindTooltip("Estás aquí")
+        .addTo(capa);
+    }
+  }, [posiciones, puntoActual]);
 
   return <div ref={contenedor} className={cn("h-[560px] w-full z-0", className)} />;
 }
