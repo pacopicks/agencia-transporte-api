@@ -1,0 +1,3 @@
+# Normaliza saltos de línea; los .bat necesitan CRLF para funcionar bien en Windows
+* text=auto
+*.bat text eol=crlf
