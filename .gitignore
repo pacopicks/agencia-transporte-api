@@ -3,9 +3,5 @@
 __pycache__/
 *.pyc
 
-# Secretos (cada quien crea su .env a partir de .env.example)
+# Secretos: cada quien crea su .env a partir de .env.example
 .env
-
-# Panel web: dependencias y compilado (iniciar.bat lo genera)
-frontend/node_modules/
-frontend/dist/

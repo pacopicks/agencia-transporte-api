@@ -1,68 +1,33 @@
+"""JWT: iniciar sesión y consultar el usuario de la sesión."""
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Security, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
-from app import models, schemas
+from app import config, schemas
 from app.database import DB
-from app.limites import limite_login
-from app.seguridad import (
-    HASH_DE_RELLENO,
-    ROLES,
-    Identidad,
-    crear_token,
-    hashear_password,
-    identidad_actual,
-    verificar_password,
-)
+from app.limitador import limiter
+from app.models import Usuario
+from app.seguridad import UsuarioActual, crear_token, hashear_password, verificar_password
 
-router = APIRouter(prefix="/api/auth", tags=["Autenticación"])
-Sesion = Annotated[Identidad, Security(identidad_actual)]  # cualquier sesión válida, sin scopes extra
+router = APIRouter(prefix="/api/auth", tags=["1. Autenticación (JWT)"])
+
+# Si el usuario no existe se compara contra este hash para que la respuesta tarde lo mismo
+# y no se pueda adivinar qué usuarios existen midiendo el tiempo.
+HASH_FALSO = hashear_password("no-existe")
 
 
-@router.post(
-    "/token",
-    response_model=schemas.Token,
-    dependencies=[Depends(limite_login)],
-    summary="Iniciar sesión (devuelve un JWT)",
-)
-def iniciar_sesion(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DB):
-    """Si no pides scopes recibes todos los de tu rol; si pides algunos, el token solo tendrá esos."""
-    usuario = db.scalar(select(models.Usuario).where(models.Usuario.usuario == form.username))
-    password_ok = verificar_password(form.password, usuario.password_hash if usuario else HASH_DE_RELLENO)
+@router.post("/login", response_model=schemas.Token, summary="Iniciar sesión y obtener un JWT")
+@limiter.limit(config.LIMITE_LOGIN)  # contra ataques de fuerza bruta: 5 intentos por minuto por IP
+def login(request: Request, form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DB):
+    usuario = db.scalar(select(Usuario).where(Usuario.usuario == form.username))
+    password_ok = verificar_password(form.password, usuario.password_hash if usuario else HASH_FALSO)
     if usuario is None or not password_ok or not usuario.activo:
-        # Mismo mensaje en todos los casos para no revelar qué usuarios existen
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuario o contraseña incorrectos")
-    permitidos = ROLES[usuario.rol]
-    pedidos = set(form.scopes)
-    if pedidos - permitidos:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN, f"Tu rol ({usuario.rol}) no permite: {', '.join(sorted(pedidos - permitidos))}"
-        )
-    scopes = pedidos or permitidos
-    return schemas.Token(
-        access_token=crear_token(usuario, scopes), nombre=usuario.nombre, rol=usuario.rol, scopes=sorted(scopes)
-    )
+    return schemas.Token(access_token=crear_token(usuario), rol=usuario.rol)
 
 
-@router.get("/yo", response_model=schemas.Yo, summary="Quién soy y qué permisos tengo")
-def yo(identidad: Sesion):
-    if identidad.usuario:
-        u = identidad.usuario
-        return schemas.Yo(
-            tipo="usuario", nombre=u.nombre, usuario=u.usuario, rol=u.rol,
-            conductor_id=u.conductor_id, scopes=sorted(identidad.scopes),
-        )
-    return schemas.Yo(tipo="api_key", nombre=identidad.nombre, scopes=sorted(identidad.scopes))
-
-
-@router.put("/yo/password", status_code=status.HTTP_204_NO_CONTENT, summary="Cambiar mi contraseña")
-def cambiar_password(datos: schemas.CambioPassword, identidad: Sesion, db: DB):
-    # No recibe un id en la URL: cada quien solo puede cambiar SU contraseña (evita BOLA/IDOR)
-    if identidad.usuario is None:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Las API keys no tienen contraseña")
-    if not verificar_password(datos.actual, identidad.usuario.password_hash):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "La contraseña actual no es correcta")
-    identidad.usuario.password_hash = hashear_password(datos.nueva)
-    db.commit()
+@router.get("/yo", response_model=schemas.Usuario, summary="¿Quién soy? (requiere JWT)")
+def yo(usuario: UsuarioActual):
+    return usuario
