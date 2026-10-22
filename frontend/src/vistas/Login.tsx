@@ -15,7 +15,7 @@ export function Login({ onEntrar, aviso }: { onEntrar: () => void; aviso?: strin
     setEntrando(true);
     setError("");
     try {
-      await iniciarSesion(String(datos.get("usuario")), String(datos.get("password")));
+      await iniciarSesion(String(datos.get("usuario")).trim(), String(datos.get("password")));
       onEntrar();
     } catch (err) {
       setError(mensaje(err));
@@ -39,7 +39,16 @@ export function Login({ onEntrar, aviso }: { onEntrar: () => void; aviso?: strin
         </div>
         <div className="grid gap-2">
           <Label htmlFor="usuario">Usuario</Label>
-          <Input id="usuario" name="usuario" autoComplete="username" required autoFocus />
+          <Input
+            id="usuario"
+            name="usuario"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            required
+            autoFocus
+          />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="password">Contraseña</Label>

@@ -116,7 +116,7 @@ export function LoginMovil({ onEntrar, aviso }: { onEntrar: () => void; aviso?: 
     setEntrando(true);
     setError("");
     try {
-      await iniciarSesion(String(f.get("usuario")), String(f.get("password")));
+      await iniciarSesion(String(f.get("usuario")).trim(), String(f.get("password")));
       onEntrar();
     } catch (err) {
       setError(mensaje(err));
@@ -135,7 +135,16 @@ export function LoginMovil({ onEntrar, aviso }: { onEntrar: () => void; aviso?: 
       <form onSubmit={enviar} className="-mt-8 mx-4 space-y-4 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm">
         <div className="grid gap-2">
           <Label htmlFor="usuario">Usuario</Label>
-          <Input id="usuario" name="usuario" autoComplete="username" autoCapitalize="none" required className="h-11" />
+          <Input
+            id="usuario"
+            name="usuario"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            required
+            className="h-11"
+          />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="password">Contraseña</Label>
