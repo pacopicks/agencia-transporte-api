@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Transporte" />
+    <link rel="manifest" href="/movil/manifest.webmanifest" />
+    <link rel="icon" href="/movil/icono.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/movil/icono-192.png" />
+    <title>Transporte · App móvil</title>
+    <script>
+      // Aplica el modo oscuro antes de pintar para evitar un parpadeo blanco
+      try {
+        if (localStorage.getItem("tema") === "oscuro") document.documentElement.classList.add("dark");
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="/assets/movil-C7ZVkte1.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/src-ouZaCW4-.js">
+    <link rel="stylesheet" crossorigin href="/assets/src-nG--Pyqv.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -6,6 +6,6 @@ __pycache__/
 # Secretos (cada quien crea su .env a partir de .env.example)
 .env
 
-# Panel web: dependencias y compilado (iniciar.bat lo genera)
+# Dependencias del panel (se reinstalan con npm install)
+# frontend/dist SÍ se sube: así el servidor no necesita Node.js
 frontend/node_modules/
-frontend/dist/

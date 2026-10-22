@@ -25,9 +25,32 @@ API para una agencia de transporte de carga. Dirige a los camiones por **rutas �
 | Seguridad | JWT con scopes (PyJWT) · API keys · rate limit · CORS · protección BOLA/IDOR |
 | Panel web y app móvil | React 19 · TypeScript · Vite · Tailwind CSS 4 · shadcn/ui · Leaflet (mapas) · PWA (manifest + service worker) |
 
-## Cómo arrancarlo
+## Requisitos de seguridad de la tarea
 
-**Requisitos:** Python 3.12+, Node.js 20+ y PostgreSQL instalado y encendido.
+| Requisito | En la API | En el panel web (`/`) | En la app móvil (`/movil/`) |
+|---|---|---|---|
+| **JWT** | `POST /api/auth/token` entrega el token y todas las rutas lo exigen. Sin token o con un token alterado: **401**. | Pantalla de inicio de sesión. El token viaja en cada petición; si expira, te regresa al login. | Su propia pantalla de inicio de sesión, con el mismo token. |
+| **Roles** | 4 roles (admin, operador, consulta, conductor) con *scopes* por endpoint. Si falta permiso: **403**. | El menú y los botones cambian según el rol: *Usuarios* y *API keys* solo los ve el admin, `consulta` no tiene botones de edición y el conductor solo ve *Mi ruta*. | Pestañas según el rol: el conductor tiene *Mi viaje* e *Historial*; el personal tiene *Inicio*, *Asignaciones*, *Envíos* y *Flota*. `consulta` no puede editar. |
+| **BOLA/IDOR** | Verificación de dueño en `/api/conductor/viajes/{id}` y `/api/rutas/camion/{id}`: si no es tuyo, **404**. El GPS no acepta `camion_id`. Ver [ANALISIS-BOLA-IDOR.md](ANALISIS-BOLA-IDOR.md). | El conductor en *Mi ruta* solo ve su camión. | Si un conductor escribe en la URL el id de un viaje ajeno: *"No se encontró el viaje"*. |
+| **API key** | Encabezado `X-API-Key`. Se guarda solo el hash, tiene scopes propios y se puede revocar. | Sección **API keys**: crear (la llave se muestra una sola vez), revocar y eliminar. | No se usa a propósito: la app es para personas y usa JWT. Las API keys son para sistemas externos y meterlas en la app las dejaría expuestas. |
+| **Rate limit** | 120 peticiones por minuto en general, 10 intentos de login y 10 ejecuciones del modelo por minuto. Al pasarse: **429** con `Retry-After`. | Muestra *"Demasiadas peticiones. Intenta de nuevo en N s."* | Muestra el mismo aviso. |
+
+**Comprobarlo desde un cliente externo** (cualquier computadora con Python que llegue al servidor):
+
+```bash
+python3 pruebas/probar_seguridad.py http://IP-DEL-SERVIDOR:8000   # 23 pruebas: JWT, roles, BOLA, API key y rate limit
+python3 pruebas/bola_idor.py http://IP-DEL-SERVIDOR:8000          # 20 ataques BOLA/IDOR entre conductores
+```
+
+`probar_seguridad.py` deja el login bloqueado 1 minuto al final (prueba del rate limit), así que espera ese minuto antes de correr otra prueba.
+
+## Subirlo a Ubuntu Server
+
+Guía paso a paso para una máquina virtual: **[GUIA-UBUNTU.md](GUIA-UBUNTU.md)**. El panel ya va compilado en `frontend/dist`, así que **el servidor no necesita Node.js**, solo Python y PostgreSQL.
+
+## Cómo arrancarlo en Windows
+
+**Requisitos:** Python 3.10+ y PostgreSQL instalado y encendido. Node.js 20+ solo hace falta si vas a modificar el panel.
 
 1. Revisa el archivo `.env` (si no existe, copia `.env.example` como `.env`) y pon la contraseña de tu usuario `postgres` en `DATABASE_URL`.
 2. Haz doble clic en **`iniciar.bat`**. La primera vez instala todo y compila el panel.
@@ -154,7 +177,9 @@ frontend/               panel web (React + TypeScript + Tailwind + shadcn/ui)
   movil/index.html      página de la app móvil
   src/movil/            app móvil: pantallas del conductor y del personal, GPS
   public/movil/         manifest, service worker e íconos de la PWA
+pruebas/probar_seguridad.py   23 pruebas de los requisitos de la tarea (JWT, roles, BOLA, API key, rate limit)
 pruebas/bola_idor.py    20 pruebas automáticas de ataques BOLA/IDOR
+GUIA-UBUNTU.md          cómo subirlo a Ubuntu Server en una máquina virtual
 database/esquema.sql    esquema SQL de referencia
 iniciar.bat             arranca todo (solo en esta computadora)
 iniciar-red.bat         arranca todo y lo abre a tu red Wi-Fi (para el celular)
@@ -172,7 +197,7 @@ cd frontend
 npm run dev        # panel: http://localhost:5173 · app móvil: http://localhost:5173/movil/
 ```
 
-Cuando termines, ejecuta `npm run build` para que FastAPI sirva la versión nueva.
+Cuando termines, ejecuta `npm run build` para que FastAPI sirva la versión nueva, y sube también `frontend/dist`: va en git para que el servidor no necesite Node.js.
 
 El proyecto sigue la estructura de **shadcn/ui** (`components.json`, alias `@/` hacia `src/`, componentes en `src/components/ui`). Para agregar más componentes usa `npx shadcn@latest add <componente>` dentro de `frontend`. Tienen que vivir en `components/ui` porque ahí los busca y los escribe el CLI de shadcn, y ahí los importa el resto del código (`@/components/ui/...`).
 
