@@ -5,25 +5,26 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from app import config
-
-engine = create_engine(config.DATABASE_URL, pool_pre_ping=True)
-SesionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+from app.config import settings
 
 
 class Base(DeclarativeBase):
     pass
 
 
+engine = create_engine(settings.database_url, pool_pre_ping=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
 def crear_base_si_no_existe() -> None:
-    """Crea la base de datos (por ejemplo 'transporte_api') si todavía no existe."""
-    url = make_url(config.DATABASE_URL)
+    """Crea la base de datos en PostgreSQL (p. ej. 'transporte') si todavía no existe."""
+    url = make_url(settings.database_url)
     if url.get_backend_name() != "postgresql":
         return
     servidor = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
     try:
         with servidor.connect() as conn:
-            existe = conn.scalar(text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": url.database})
+            existe = conn.scalar(text("SELECT 1 FROM pg_database WHERE datname = :nombre"), {"nombre": url.database})
             if not existe:
                 conn.execute(text(f'CREATE DATABASE "{url.database}"'))
     finally:
@@ -31,7 +32,8 @@ def crear_base_si_no_existe() -> None:
 
 
 def get_db():
-    db = SesionLocal()
+    """Abre una sesión por petición y la cierra al terminar."""
+    db = SessionLocal()
     try:
         yield db
     finally:

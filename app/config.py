@@ -1,22 +1,35 @@
-"""Configuración de la API. Se lee del archivo .env (copia .env.example como .env)."""
-import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+RAIZ = Path(__file__).resolve().parent.parent
+CLAVE_DE_EJEMPLO = "cambia-esta-clave-por-un-texto-largo-y-secreto-1234567890"
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/transporte_api")
-SECRET_KEY = os.getenv("SECRET_KEY", "cambia-esta-clave-por-una-larga-y-secreta")
-TOKEN_MINUTOS = int(os.getenv("TOKEN_MINUTOS", "60"))
 
-ADMIN_USUARIO = os.getenv("ADMIN_USUARIO", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
-CARGAR_DEMO = os.getenv("CARGAR_DEMO", "true").lower() == "true"
+class Settings(BaseSettings):
+    """Configuración leída del archivo .env (o de variables de entorno)."""
 
-# Rate limit (formato: "cantidad/minute", "cantidad/hour", ...)
-LIMITE_GENERAL = os.getenv("LIMITE_GENERAL", "60/minute")
-LIMITE_LOGIN = os.getenv("LIMITE_LOGIN", "5/minute")
-LIMITE_RASTREO = os.getenv("LIMITE_RASTREO", "20/minute")
+    model_config = SettingsConfigDict(env_file=RAIZ / ".env", env_file_encoding="utf-8", extra="ignore")
 
-CORS_ORIGENES = [o.strip() for o in os.getenv("CORS_ORIGENES", "*").split(",") if o.strip()]
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/transporte"
+    secret_key: str = CLAVE_DE_EJEMPLO
+    token_minutos: int = 480
+    admin_usuario: str = "admin"
+    admin_password: str = "admin123"
+    precio_diesel: float = 25.5
+    cargar_demo: bool = True
+
+    # Orígenes (sitios web) que pueden llamar a la API desde el navegador, separados por coma
+    cors_origenes: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    # Rate limit: peticiones permitidas por minuto
+    limite_por_minuto: int = 120  # general, por usuario / API key / IP
+    limite_login_por_minuto: int = 10  # intentos de inicio de sesión por IP
+    limite_modelo_por_minuto: int = 10  # ejecuciones del modelo de asignación
+
+    @property
+    def lista_cors(self) -> list[str]:
+        return [origen.strip() for origen in self.cors_origenes.split(",") if origen.strip()]
+
+
+settings = Settings()
