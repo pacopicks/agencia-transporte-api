@@ -16,7 +16,7 @@ Tiempo aproximado: 30 a 45 minutos.
 
 ## 0. Antes de empezar
 
-- **Acceso al repositorio:** es privado. Paco te tiene que agregar como colaborador (en GitHub: repo → *Settings → Collaborators → Add people*) y tú debes **aceptar la invitación** que te llega por correo.
+- **El repositorio es público:** no necesitas cuenta de GitHub ni invitación para descargarlo.
 - **Software de la VM:** [VirtualBox](https://www.virtualbox.org/) (esta guía lo usa) o VMware.
 - **Ubuntu Server 24.04 LTS:** [descarga la ISO](https://ubuntu.com/download/server). 22.04 también funciona.
 - **VM recomendada:** 2 GB de RAM, 2 CPU y 20 GB de disco.
@@ -63,7 +63,7 @@ Escribe `yes` la primera vez y luego tu contraseña de Ubuntu. Desde aquí todos
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3 python3-venv python3-pip postgresql git gh curl
+sudo apt install -y python3 python3-venv python3-pip postgresql git curl
 ```
 
 ## 5. Crear la base de datos
@@ -82,35 +82,16 @@ Deben salir `CREATE ROLE` y `CREATE DATABASE`.
 
 ## 6. Descargar el código
 
-Inicia sesión en GitHub desde el servidor:
-
-```bash
-gh auth login
-```
-
-Responde: **GitHub.com → HTTPS → Y → Login with a web browser**. Te va a mostrar un código como `ABCD-1234`; presiona **Enter** (no importa que en el servidor no se abra ningún navegador). Abre **https://github.com/login/device** en tu computadora o celular, escribe el código y autoriza. Después:
+El repositorio es público, así que se descarga sin iniciar sesión:
 
 ```bash
 cd ~
-gh repo clone pacopicks/agencia-transporte-api
+git clone https://github.com/pacopicks/agencia-transporte-api.git
 cd agencia-transporte-api
 ls
 ```
 
 Debes ver `app`, `frontend`, `pruebas`, `requirements.txt`, etc.
-
-<details>
-<summary>Alternativa sin <code>gh</code>: con un token</summary>
-
-En GitHub: tu foto → *Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)*. Marca el permiso **`repo`** y copia el token. Luego:
-
-```bash
-cd ~
-git clone https://github.com/pacopicks/agencia-transporte-api.git
-```
-
-Cuando pida *Username* pon tu usuario de GitHub, y en *Password* **pega el token**. Tu contraseña normal no sirve.
-</details>
 
 ## 7. Instalar las dependencias de Python
 
