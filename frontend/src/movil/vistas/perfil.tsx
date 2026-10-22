@@ -148,7 +148,17 @@ export function LoginMovil({ onEntrar, aviso }: { onEntrar: () => void; aviso?: 
         </div>
         <div className="grid gap-2">
           <Label htmlFor="password">Contraseña</Label>
-          <Input id="password" name="password" type="password" autoComplete="current-password" required className="h-11" />
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            required
+            className="h-11"
+          />
         </div>
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         <Button type="submit" disabled={entrando} className="h-12 w-full bg-blue-600 text-base text-white hover:bg-blue-700">

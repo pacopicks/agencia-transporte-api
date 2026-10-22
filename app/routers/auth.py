@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Security, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app import models, schemas
 from app.database import DB
@@ -29,8 +29,10 @@ Sesion = Annotated[Identidad, Security(identidad_actual)]  # cualquier sesión v
 )
 def iniciar_sesion(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DB):
     """Si no pides scopes recibes todos los de tu rol; si pides algunos, el token solo tendrá esos."""
-    # strip(): el teclado del celular a veces agrega un espacio al final del usuario
-    usuario = db.scalar(select(models.Usuario).where(models.Usuario.usuario == form.username.strip()))
+    # El usuario no distingue mayúsculas ni espacios de más (el teclado del celular los agrega solo).
+    # La contraseña sí se compara exacta.
+    nombre = form.username.strip().lower()
+    usuario = db.scalar(select(models.Usuario).where(func.lower(models.Usuario.usuario) == nombre))
     password_ok = verificar_password(form.password, usuario.password_hash if usuario else HASH_DE_RELLENO)
     if usuario is None or not password_ok or not usuario.activo:
         # Mismo mensaje en todos los casos para no revelar qué usuarios existen
