@@ -44,6 +44,10 @@ python3 pruebas/bola_idor.py http://IP-DEL-SERVIDOR:8000          # 20 ataques B
 
 `probar_seguridad.py` deja el login bloqueado 1 minuto al final (prueba del rate limit), así que espera ese minuto antes de correr otra prueba.
 
+## Guía rápida para correrlo
+
+Pasos para encender la API y usar el panel web, la app móvil, Swagger y las pruebas de seguridad: **[COMO-CORRERLO.md](COMO-CORRERLO.md)**. También está como página para abrir en el navegador: [`docs/como-correr-la-api.html`](docs/como-correr-la-api.html).
+
 ## Subirlo a Ubuntu Server
 
 Guía paso a paso para una máquina virtual: **[GUIA-UBUNTU.md](GUIA-UBUNTU.md)**. El panel ya va compilado en `frontend/dist`, así que **el servidor no necesita Node.js**, solo Python y PostgreSQL.

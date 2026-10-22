@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo correr la API de transporte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: una sola columna de lectura (~68ch) con una tarjeta de referencia rápida arriba;
+     los pasos usan escudos numerados como señales de carretera porque el orden sí importa. */
+  :root {
+    --bg: #f6f8fb;
+    --surface: #ffffff;
+    --fg: #172033;
+    --muted: #5b6577;
+    --line: #dde3ec;
+    --accent: #2563eb;
+    --accent-soft: #e6eefd;
+    --code-bg: #0f172a;
+    --code-fg: #e2e8f0;
+    --warn: #b45309;
+    --warn-soft: #fef3e2;
+    --ok: #15803d;
+    --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+    --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1220; --surface: #151c2e; --fg: #e6ebf3; --muted: #9aa5b8; --line: #263049;
+      --accent: #6b9bff; --accent-soft: #1b2a4d; --code-bg: #070b15; --code-fg: #dbe3f0;
+      --warn: #f2b25c; --warn-soft: #33260f; --ok: #4ade80; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1220; --surface: #151c2e; --fg: #e6ebf3; --muted: #9aa5b8; --line: #263049;
+    --accent: #6b9bff; --accent-soft: #1b2a4d; --code-bg: #070b15; --code-fg: #dbe3f0;
+    --warn: #f2b25c; --warn-soft: #33260f; --ok: #4ade80; color-scheme: dark;
+  }
+
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 17px; line-height: 1.6; }
+  .pagina { max-width: 46rem; margin-inline: auto; padding-inline: 20px; padding-block: 40px 72px; display: grid; gap: 40px; }
+  h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(2.1rem, 6vw, 2.9rem); letter-spacing: -0.01em; }
+  h2 { font-size: 1.65rem; }
+  h3 { font-size: 1.15rem; }
+  p { margin: 0; }
+  a { color: var(--accent); }
+  strong { font-weight: 600; }
+  code { font-family: var(--font-mono); font-size: 0.86em; background: var(--accent-soft); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+
+  .portada { display: grid; gap: 12px; }
+  .etiqueta { font-family: var(--font-display); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+  .portada p { color: var(--muted); max-width: 60ch; }
+
+  /* Referencia rápida */
+  .referencia { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: grid; gap: 22px; }
+  .direcciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 12px; }
+  .direccion { display: grid; gap: 2px; min-width: 0; }
+  .direccion span { font-size: 0.8rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600; }
+  .direccion code { background: none; padding: 0; font-size: 0.92rem; color: var(--fg); }
+  .nota { font-size: 0.92rem; color: var(--muted); }
+
+  .tabla { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th { text-align: left; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 12px 8px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td code { white-space: nowrap; }
+
+  /* Secciones con escudo numerado */
+  .seccion { display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: 0 16px; }
+  .escudo { width: 2.6rem; height: 2.9rem; display: grid; place-items: center; background: var(--accent); color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; clip-path: polygon(0 0, 100% 0, 100% 72%, 50% 100%, 0 72%); padding-bottom: 6px; }
+  .seccion-cuerpo { display: grid; gap: 14px; min-width: 0; }
+  .seccion-cuerpo > p { color: var(--muted); }
+  ol.pasos { margin: 0; padding-left: 1.3rem; display: grid; gap: 10px; }
+  ol.pasos li { padding-left: 4px; }
+  ol.pasos li::marker { font-family: var(--font-display); font-weight: 600; color: var(--accent); }
+  ul.lista { margin: 6px 0 0; padding-left: 1.2rem; display: grid; gap: 4px; }
+
+  /* Comandos con botón de copiar */
+  .comando { position: relative; background: var(--code-bg); color: var(--code-fg); border-radius: 10px; margin-top: 8px; }
+  .comando pre { margin: 0; padding: 14px 92px 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.55; }
+  .copiar { position: absolute; top: 8px; right: 8px; font: 500 0.78rem var(--font-body); color: var(--code-fg); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .copiar:hover { background: rgba(255,255,255,0.16); }
+  .copiar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .aviso { display: flex; gap: 10px; background: var(--warn-soft); color: var(--fg); border-radius: 10px; padding: 12px 14px; font-size: 0.95rem; }
+  .aviso b { color: var(--warn); font-family: var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.85rem; padding-top: 2px; white-space: nowrap; }
+  .resultado { color: var(--ok); font-weight: 600; }
+
+  .problemas { display: grid; gap: 14px; }
+  .problema { display: grid; gap: 4px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .problema:last-child { border-bottom: 0; padding-bottom: 0; }
+  .problema h3 { font-family: var(--font-body); font-weight: 600; font-size: 1rem; }
+  .problema p { color: var(--muted); font-size: 0.95rem; }
+
+  @media (max-width: 520px) {
+    body { font-size: 16px; }
+    .seccion { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .referencia { padding: 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header class="portada">
+    <span class="etiqueta">Agencia de Transporte · Guía de uso</span>
+    <h1>Cómo correr la API de transporte</h1>
+    <p>Pasos para encender la API en la laptop y usarla desde el panel web, la app móvil y la documentación, más las pruebas de seguridad para la presentación.</p>
+  </header>
+
+  <section class="referencia" aria-labelledby="ref-titulo">
+    <h2 id="ref-titulo">Referencia rápida</h2>
+    <div class="direcciones">
+      <div class="direccion"><span>Panel web</span><code>http://192.168.100.43:8000</code></div>
+      <div class="direccion"><span>App móvil</span><code>http://192.168.100.43:8000/movil/</code></div>
+      <div class="direccion"><span>Documentación (Swagger)</span><code>http://192.168.100.43:8000/docs</code></div>
+      <div class="direccion"><span>Solo en la laptop</span><code>http://localhost:8000</code></div>
+    </div>
+    <p class="nota">La IP <code>192.168.100.43</code> es la de tu red de casa. Si cambias de red (por ejemplo en la escuela), usa la que muestre <code>iniciar-red.bat</code> en ese momento.</p>
+    <div class="tabla">
+      <table>
+        <thead><tr><th>Usuario</th><th>Contraseña</th><th>Rol</th><th>Dónde se usa</th></tr></thead>
+        <tbody>
+          <tr><td><code>admin</code></td><td><code>admin123</code></td><td>Administrador</td><td>Todo, incluidos usuarios y API keys</td></tr>
+          <tr><td><code>operador</code></td><td><code>operador123</code></td><td>Operador</td><td>Editar catálogos y ejecutar el modelo</td></tr>
+          <tr><td><code>consulta</code></td><td><code>consulta123</code></td><td>Consulta</td><td>Solo lectura, sin botones de edición</td></tr>
+          <tr><td><code>juan</code></td><td><code>juan123</code></td><td>Conductor</td><td>App móvil, camión 71-AK-3D</td></tr>
+          <tr><td><code>maria</code></td><td><code>maria123</code></td><td>Conductor</td><td>App móvil, camión 52-BN-8F</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="seccion" aria-labelledby="s1">
+    <div class="escudo" aria-hidden="true">1</div>
+    <div class="seccion-cuerpo">
+      <h2 id="s1">Encender la API</h2>
+      <p>En la laptop donde está el proyecto. PostgreSQL arranca solo con Windows.</p>
+      <ol class="pasos">
+        <li>Abre PowerShell (o la terminal de VS Code) y escribe:
+          <div class="comando"><button class="copiar" type="button">Copiar</button><pre><code>cd B:\API
+.\iniciar-red.bat</code></pre></div>
+        </li>
+        <li>Espera a que aparezca <code>Uvicorn running on http://0.0.0.0:8000</code>.</li>
+        <li>Anota la dirección que muestra y que empieza con <code>192.168.100.</code>. Ignora la <code>192.168.56.1</code>, que es de VirtualBox.</li>
+        <li>Si Windows pregunta por el firewall, da clic en <strong>Permitir</strong>.</li>
+      </ol>
+      <div class="aviso"><b>Ojo</b><span>No cierres esa ventana: si la cierras, la API se apaga.</span></div>
+    </div>
+  </section>
+
+  <section class="seccion" aria-labelledby="s2">
+    <div class="escudo" aria-hidden="true">2</div>
+    <div class="seccion-cuerpo">
+      <h2 id="s2">Panel web</h2>
+      <ol class="pasos">
+        <li>Abre en el navegador <code>http://localhost:8000</code> si estás en la laptop, o <code>http://192.168.100.43:8000</code> desde otra computadora del mismo Wi-Fi.</li>
+        <li>Entra con <code>admin</code> / <code>admin123</code>.</li>
+        <li>Ve a <strong>Asignaciones → Ejecutar modelo</strong> para que los camiones reciban sus viajes.</li>
+        <li>Revisa <strong>Mapa y rutas</strong>, <strong>Envíos</strong>, <strong>Camiones</strong>, <strong>Usuarios</strong> y <strong>API keys</strong>.</li>
+        <li>Cierra sesión con el ícono de salir (arriba a la derecha) y entra como <code>consulta</code> / <code>consulta123</code>: ya no aparecen los botones de editar.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="seccion" aria-labelledby="s3">
+    <div class="escudo" aria-hidden="true">3</div>
+    <div class="seccion-cuerpo">
+      <h2 id="s3">App móvil</h2>
+      <ol class="pasos">
+        <li>Conecta el celular al <strong>mismo Wi-Fi</strong> que la laptop.</li>
+        <li>Abre Safari o Chrome en <code>http://192.168.100.43:8000/movil/</code>.</li>
+        <li>Entra como <code>juan</code> / <code>juan123</code>. Escribe la contraseña a mano y en minúsculas, sin elegir sugerencias del teclado.</li>
+        <li>En <strong>Mi viaje</strong>: revisa el mapa, toca <strong>Iniciar viaje</strong> y después <strong>Confirmar entrega</strong>.</li>
+        <li>Para probar BOLA/IDOR:
+          <ul class="lista">
+            <li>Ve a <strong>Historial</strong> y abre un viaje.</li>
+            <li>En la barra de direcciones cambia el número del final por el de un viaje de María (por ejemplo <code>#/historial/2</code>).</li>
+            <li>Debe salir <span class="resultado">“No se encontró el viaje”</span>.</li>
+          </ul>
+        </li>
+        <li>En <strong>Perfil → Cerrar sesión</strong>, y entra como <code>admin</code>: verás las pestañas Inicio, Asignaciones, Envíos y Flota.</li>
+      </ol>
+      <p>Por <code>http</code> la app funciona completa, pero el navegador no permite el GPS ni el botón “Instalar app”: esas dos cosas necesitan <code>https</code>.</p>
+    </div>
+  </section>
+
+  <section class="seccion" aria-labelledby="s4">
+    <div class="escudo" aria-hidden="true">4</div>
+    <div class="seccion-cuerpo">
+      <h2 id="s4">Documentación de la API (Swagger)</h2>
+      <ol class="pasos">
+        <li>Abre <code>http://192.168.100.43:8000/docs</code>.</li>
+        <li>Da clic en <strong>Authorize</strong>, escribe usuario y contraseña (deja los scopes sin marcar) y da <strong>Authorize</strong>.</li>
+        <li>En cualquier endpoint usa <strong>Try it out → Execute</strong> para probarlo.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="seccion" aria-labelledby="s5">
+    <div class="escudo" aria-hidden="true">5</div>
+    <div class="seccion-cuerpo">
+      <h2 id="s5">Pruebas automáticas de seguridad</h2>
+      <p>Opcional, para la presentación. Con la API encendida, abre <strong>otra</strong> terminal y corre las dos pruebas en este orden:</p>
+      <div class="comando"><button class="copiar" type="button">Copiar</button><pre><code>cd B:\API
+.venv\Scripts\python pruebas\bola_idor.py http://192.168.100.43:8000
+.venv\Scripts\python pruebas\probar_seguridad.py http://192.168.100.43:8000</code></pre></div>
+      <p>Deben terminar con <span class="resultado">20/20</span> y <span class="resultado">23/23</span> pruebas pasadas. La segunda deja el login bloqueado 1 minuto al final, porque así se demuestra el rate limit.</p>
+    </div>
+  </section>
+
+  <section class="seccion" aria-labelledby="s6">
+    <div class="escudo" aria-hidden="true">6</div>
+    <div class="seccion-cuerpo">
+      <h2 id="s6">Apagar</h2>
+      <p>En la terminal donde corre la API presiona <code>Ctrl+C</code>, o cierra esa ventana.</p>
+    </div>
+  </section>
+
+  <section class="referencia" aria-labelledby="demo-titulo">
+    <h2 id="demo-titulo">Para la presentación</h2>
+    <p class="nota">Dónde se ve cada requisito de la tarea.</p>
+    <div class="tabla">
+      <table>
+        <thead><tr><th>Requisito</th><th>Cómo mostrarlo</th></tr></thead>
+        <tbody>
+          <tr><td><strong>JWT</strong></td><td>El login del panel o de la app. En Swagger, un endpoint sin <em>Authorize</em> responde 401.</td></tr>
+          <tr><td><strong>Roles</strong></td><td>Entrar como <code>admin</code>, <code>consulta</code> y <code>juan</code>: cada uno ve un menú distinto, y <code>consulta</code> no puede editar.</td></tr>
+          <tr><td><strong>BOLA/IDOR</strong></td><td>En la app, <code>juan</code> cambia el número del viaje en la dirección: “No se encontró el viaje”. Explicado en <code>ANALISIS-BOLA-IDOR.md</code>.</td></tr>
+          <tr><td><strong>API key</strong></td><td>Panel web, sección <strong>API keys</strong>: crear una (se ve una sola vez) y revocarla.</td></tr>
+          <tr><td><strong>Rate limit</strong></td><td>Equivocarse 10 veces seguidas en el login: aparece “Demasiadas peticiones. Intenta de nuevo en N s.”</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="referencia" aria-labelledby="prob-titulo">
+    <h2 id="prob-titulo">Si algo falla</h2>
+    <div class="problemas">
+      <div class="problema">
+        <h3>“No se pudo conectar a PostgreSQL”</h3>
+        <p>Busca <strong>Servicios</strong> en el menú Inicio de Windows y enciende <code>postgresql-x64-18</code>.</p>
+      </div>
+      <div class="problema">
+        <h3>En el celular o en la otra computadora no carga</h3>
+        <p>Revisa que estén en el mismo Wi-Fi y que uses la IP, no <code>localhost</code>. Si sigue sin cargar, abre PowerShell como administrador (clic derecho → Ejecutar como administrador) y abre el puerto:</p>
+        <div class="comando"><button class="copiar" type="button">Copiar</button><pre><code>New-NetFirewallRule -DisplayName "API Transporte 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow -Profile Private</code></pre></div>
+      </div>
+      <div class="problema">
+        <h3>“Usuario o contraseña incorrectos” con datos correctos</h3>
+        <p>El teclado del celular pudo poner mayúscula o un espacio. Borra la contraseña y escríbela a mano: <code>admin123</code> son exactamente 8 caracteres.</p>
+      </div>
+      <div class="problema">
+        <h3>“Demasiadas peticiones. Intenta de nuevo en N s.”</h3>
+        <p>Es el rate limit: se permiten 10 intentos de login por minuto. Espera los segundos que indica.</p>
+      </div>
+      <div class="problema">
+        <h3>El conductor dice “No tienes viajes por ahora”</h3>
+        <p>Entra como <code>admin</code> y ejecuta el modelo: en la web en Asignaciones, en la app en Inicio.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  document.querySelectorAll(".copiar").forEach(function (boton) {
+    boton.addEventListener("click", function () {
+      var codigo = boton.parentElement.querySelector("code");
+      var texto = codigo.innerText;
+      function listo() {
+        boton.textContent = "Copiado";
+        setTimeout(function () { boton.textContent = "Copiar"; }, 1600);
+      }
+      function seleccionar() {
+        var rango = document.createRange();
+        rango.selectNodeContents(codigo);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(rango);
+        boton.textContent = "Seleccionado";
+        setTimeout(function () { boton.textContent = "Copiar"; }, 1600);
+      }
+      try {
+        navigator.clipboard.writeText(texto).then(listo, seleccionar);
+      } catch (e) {
+        seleccionar();
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
